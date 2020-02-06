@@ -323,8 +323,6 @@ class AudioPlaybackEvent {
               speed
       : updatePosition;
 
-  Duration get bufferedPosition => bufferedPosition;
-
   @override
   String toString() =>
       "{state=$state, updateTime=$updateTime, updatePosition=$updatePosition, speed=$speed}";
