@@ -65,7 +65,7 @@ class AudioPlayer {
     updatePosition: Duration.zero,
     updateTime: Duration.zero,
     speed: 1.0,
-    bufferedPosition,
+    bufferedPosition: Duration.zero,
   );
 
   Stream<AudioPlaybackEvent> _eventChannelStream;
