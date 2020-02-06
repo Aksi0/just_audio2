@@ -1,3 +1,7 @@
+## 0.1.1
+
+* Added buffering percentage
+
 ## 0.1.0
 
 * Separate buffering state from PlaybackState.
