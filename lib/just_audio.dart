@@ -92,13 +92,13 @@ class AudioPlayer {
     _eventChannelStream = EventChannel('com.ryanheise.just_audio.events.$_id')
         .receiveBroadcastStream()
         .map((data) => _audioPlaybackEvent = AudioPlaybackEvent(
-              state: AudioPlaybackState.values[data[0]],
-              buffering: data[1],
-              updatePosition: Duration(milliseconds: data[2]),
-              updateTime: Duration(milliseconds: data[3]),
-              speed: _speed,
-              bufferedPosition: Duration(milliseconds: data[5]),
-            ));
+      state: AudioPlaybackState.values[data[0]],
+      buffering: data[1],
+      updatePosition: Duration(milliseconds: data[2]),
+      updateTime: Duration(milliseconds: data[3]),
+      speed: _speed,
+      bufferedPosition: Duration(milliseconds: data[4]),
+    ));
     _eventChannelStreamSubscription =
         _eventChannelStream.listen(_playbackEventSubject.add);
     _playbackStateSubject
@@ -109,7 +109,7 @@ class AudioPlayer {
         Rx.combineLatest2<AudioPlaybackState, bool, FullAudioPlaybackState>(
             playbackStateStream,
             bufferingStream,
-            (state, buffering) => FullAudioPlaybackState(state, buffering)));
+                (state, buffering) => FullAudioPlaybackState(state, buffering)));
   }
 
   /// The duration of any media set via [setUrl], [setFilePath] or [setAsset],
@@ -145,12 +145,21 @@ class AudioPlayer {
 
   /// A stream periodically tracking the current position of this player.
   Stream<Duration> getPositionStream(
-          [final Duration period = const Duration(milliseconds: 200)]) =>
+      [final Duration period = const Duration(milliseconds: 200)]) =>
       Rx.combineLatest2<AudioPlaybackEvent, void, Duration>(
           playbackEventStream,
           // TODO: emit periodically only in playing state.
           Stream.periodic(period),
-          (state, _) => state.position);
+              (state, _) => state.position);
+
+  /// A stream periodically tracking the current buffered position of this player.
+  Stream<Duration> getBufferedPositionStream(
+      [final Duration period = const Duration(milliseconds: 200)]) =>
+      Rx.combineLatest2<AudioPlaybackEvent, void, Duration>(
+          playbackEventStream,
+          // TODO: emit periodically only in playing state.
+          Stream.periodic(period),
+              (state, _) => state.bufferedPosition);
 
   /// The current volume of the player.
   double get volume => _volume;
@@ -318,9 +327,9 @@ class AudioPlaybackEvent {
   /// The current position of the player.
   Duration get position => state == AudioPlaybackState.playing && !buffering
       ? updatePosition +
-          (Duration(milliseconds: DateTime.now().millisecondsSinceEpoch) -
-                  updateTime) *
-              speed
+      (Duration(milliseconds: DateTime.now().millisecondsSinceEpoch) -
+          updateTime) *
+          speed
       : updatePosition;
 
   @override

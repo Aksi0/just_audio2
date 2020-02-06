@@ -91,7 +91,6 @@ public class AudioPlayer implements MethodCallHandler, Player.EventListener {
             case Player.STATE_READY:
                 if (prepareResult != null) {
                     duration = player.getDuration();
-                    bufferedPosition = player.getBufferedPosition();
                     prepareResult.success(duration);
                     prepareResult = null;
                     transition(PlaybackState.stopped);
@@ -106,13 +105,14 @@ public class AudioPlayer implements MethodCallHandler, Player.EventListener {
                 }
                 break;
         }
+        bufferedPosition = player.getTotalBufferedDuration();
         final boolean buffering = playbackState == Player.STATE_BUFFERING;
         // don't notify buffering if (buffering && state == stopped)
         final boolean notifyBuffering = !buffering || state != PlaybackState.stopped;
         if (notifyBuffering && (buffering != this.buffering)) {
             this.buffering = buffering;
-            broadcastPlaybackEvent();
         }
+        broadcastPlaybackEvent();
     }
 
     @Override
