@@ -65,6 +65,7 @@ class AudioPlayer {
     updatePosition: Duration.zero,
     updateTime: Duration.zero,
     speed: 1.0,
+    bufferedPosition,
   );
 
   Stream<AudioPlaybackEvent> _eventChannelStream;
@@ -302,12 +303,15 @@ class AudioPlaybackEvent {
   /// The playback speed.
   final double speed;
 
+  final Duration bufferedPosition;
+
   AudioPlaybackEvent({
     @required this.state,
     @required this.buffering,
     @required this.updateTime,
     @required this.updatePosition,
     @required this.speed,
+    @required this.bufferedPosition,
   });
 
   /// The current position of the player.
@@ -317,6 +321,8 @@ class AudioPlaybackEvent {
                   updateTime) *
               speed
       : updatePosition;
+
+  Duration get bufferedPosition => bufferedPosition;
 
   @override
   String toString() =>
