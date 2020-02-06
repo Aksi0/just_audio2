@@ -97,6 +97,7 @@ class AudioPlayer {
               updatePosition: Duration(milliseconds: data[2]),
               updateTime: Duration(milliseconds: data[3]),
               speed: _speed,
+              bufferedPosition: Duration(milliseconds: data[5]),
             ));
     _eventChannelStreamSubscription =
         _eventChannelStream.listen(_playbackEventSubject.add);
