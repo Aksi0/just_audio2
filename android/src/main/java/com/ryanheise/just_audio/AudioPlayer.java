@@ -1,5 +1,6 @@
 package com.ryanheise.just_audio;
 
+import android.graphics.SumPathEffect;
 import android.os.Handler;
 
 import com.google.android.exoplayer2.C;
@@ -7,12 +8,20 @@ import com.google.android.exoplayer2.Player;
 import com.google.android.exoplayer2.PlaybackParameters;
 import com.google.android.exoplayer2.SimpleExoPlayer;
 import com.google.android.exoplayer2.source.ClippingMediaSource;
+import com.google.android.exoplayer2.source.ExtractorMediaSource;
 import com.google.android.exoplayer2.source.MediaSource;
 import com.google.android.exoplayer2.source.ProgressiveMediaSource;
+import com.google.android.exoplayer2.source.SingleSampleMediaSource;
 import com.google.android.exoplayer2.source.dash.DashMediaSource;
 import com.google.android.exoplayer2.source.hls.HlsMediaSource;
 import com.google.android.exoplayer2.upstream.DataSource;
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
+import com.google.android.exoplayer2.upstream.DefaultHttpDataSource;
+import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory;
+import com.google.android.exoplayer2.upstream.cache.Cache;
+import com.google.android.exoplayer2.upstream.cache.CacheDataSourceFactory;
+import com.google.android.exoplayer2.upstream.cache.LeastRecentlyUsedCacheEvictor;
+import com.google.android.exoplayer2.upstream.cache.SimpleCache;
 import com.google.android.exoplayer2.util.Util;
 
 import io.flutter.plugin.common.EventChannel;
@@ -23,6 +32,7 @@ import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
 import io.flutter.plugin.common.MethodChannel.Result;
 import io.flutter.plugin.common.PluginRegistry.Registrar;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -60,6 +70,7 @@ public class AudioPlayer implements MethodCallHandler, Player.EventListener {
     private MediaSource mediaSource;
 
     private SimpleExoPlayer player;
+    Cache cache;
 
     public AudioPlayer(final Registrar registrar, final String id) {
         this.registrar = registrar;
@@ -105,7 +116,7 @@ public class AudioPlayer implements MethodCallHandler, Player.EventListener {
                 }
                 break;
         }
-        bufferedPosition = player.getTotalBufferedDuration();
+        bufferedPosition = player.getContentBufferedPosition();
         final boolean buffering = playbackState == Player.STATE_BUFFERING;
         // don't notify buffering if (buffering && state == stopped)
         final boolean notifyBuffering = !buffering || state != PlaybackState.stopped;
@@ -225,7 +236,14 @@ public class AudioPlayer implements MethodCallHandler, Player.EventListener {
         abortExistingConnection();
         prepareResult = result;
         transition(PlaybackState.connecting);
-        DataSource.Factory dataSourceFactory = new DefaultDataSourceFactory(context, Util.getUserAgent(context, "just_audio"));
+//        DataSource.Factory dataSourceFactory = new DefaultDataSourceFactory(context, Util.getUserAgent(context, "just_audio"));
+        DataSource.Factory dataSourceFactory = new DefaultHttpDataSourceFactory(Util.getUserAgent(context, "just_audio"));
+        if (cache == null) {
+            cache = new SimpleCache(new File(context.getCacheDir(), "exoCache"),
+                    new LeastRecentlyUsedCacheEvictor(1024*1024*256));
+        }
+        dataSourceFactory = new CacheDataSourceFactory(cache,
+                dataSourceFactory);
         Uri uri = Uri.parse(url);
         if (uri.getPath().toLowerCase().endsWith(".mpd")) {
             mediaSource = new DashMediaSource.Factory(dataSourceFactory).createMediaSource(uri);
