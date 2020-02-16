@@ -1,32 +1,18 @@
 package com.ryanheise.just_audio;
 
-import android.graphics.SumPathEffect;
 import android.os.Handler;
 
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.Player;
 import com.google.android.exoplayer2.PlaybackParameters;
 import com.google.android.exoplayer2.SimpleExoPlayer;
-import com.google.android.exoplayer2.database.ExoDatabaseProvider;
-import com.google.android.exoplayer2.offline.DownloadHelper;
-import com.google.android.exoplayer2.offline.DownloadManager;
-import com.google.android.exoplayer2.offline.DownloadRequest;
 import com.google.android.exoplayer2.source.ClippingMediaSource;
-import com.google.android.exoplayer2.source.ExtractorMediaSource;
 import com.google.android.exoplayer2.source.MediaSource;
 import com.google.android.exoplayer2.source.ProgressiveMediaSource;
-import com.google.android.exoplayer2.source.SingleSampleMediaSource;
 import com.google.android.exoplayer2.source.dash.DashMediaSource;
 import com.google.android.exoplayer2.source.hls.HlsMediaSource;
 import com.google.android.exoplayer2.upstream.DataSource;
 import com.google.android.exoplayer2.upstream.DefaultDataSourceFactory;
-import com.google.android.exoplayer2.upstream.DefaultHttpDataSource;
-import com.google.android.exoplayer2.upstream.DefaultHttpDataSourceFactory;
-import com.google.android.exoplayer2.upstream.cache.Cache;
-import com.google.android.exoplayer2.upstream.cache.CacheDataSourceFactory;
-import com.google.android.exoplayer2.upstream.cache.LeastRecentlyUsedCacheEvictor;
-import com.google.android.exoplayer2.upstream.cache.NoOpCacheEvictor;
-import com.google.android.exoplayer2.upstream.cache.SimpleCache;
 import com.google.android.exoplayer2.util.Util;
 
 import io.flutter.plugin.common.EventChannel;
@@ -37,12 +23,10 @@ import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
 import io.flutter.plugin.common.MethodChannel.Result;
 import io.flutter.plugin.common.PluginRegistry.Registrar;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.LinkedList;
 
 import android.content.Context;
@@ -76,9 +60,6 @@ public class AudioPlayer implements MethodCallHandler, Player.EventListener {
     private MediaSource mediaSource;
 
     private SimpleExoPlayer player;
-    Cache cache;
-    ExoDatabaseProvider databaseProvider;
-    DownloadManager downloadManager;
 
     public AudioPlayer(final Registrar registrar, final String id) {
         this.registrar = registrar;
@@ -124,10 +105,7 @@ public class AudioPlayer implements MethodCallHandler, Player.EventListener {
                 }
                 break;
         }
-        bufferedPosition = 0;//player.getContentBufferedPosition();
-        if (downloadManager != null && downloadManager.getCurrentDownloads().size() > 0) {
-            bufferedPosition = (long)(downloadManager.getCurrentDownloads().get(0).getPercentDownloaded() * 100);
-        }
+        bufferedPosition = player.getTotalBufferedDuration();
         final boolean buffering = playbackState == Player.STATE_BUFFERING;
         // don't notify buffering if (buffering && state == stopped)
         final boolean notifyBuffering = !buffering || state != PlaybackState.stopped;
@@ -247,49 +225,14 @@ public class AudioPlayer implements MethodCallHandler, Player.EventListener {
         abortExistingConnection();
         prepareResult = result;
         transition(PlaybackState.connecting);
-        if (databaseProvider == null) {
-            databaseProvider = new ExoDatabaseProvider(context);
-        }
-
-//        DataSource.Factory dataSourceFactory = new DefaultDataSourceFactory(context, Util.getUserAgent(context, "just_audio"));
-        DataSource.Factory dataSourceFactory = new DefaultHttpDataSourceFactory(Util.getUserAgent(context, "just_audio"));
-        if (cache == null) {
-            cache = new SimpleCache(
-                    new File(context.getCacheDir(), "exoCache"),
-                    new NoOpCacheEvictor(),
-                    databaseProvider
-            );
-        }
-        if (downloadManager == null) {
-            downloadManager = new DownloadManager(
-                    context,
-                    databaseProvider,
-                    cache,
-                    dataSourceFactory);
-
-            downloadManager.setMaxParallelDownloads(3);
-        }
-
-        dataSourceFactory = new CacheDataSourceFactory(cache,
-                dataSourceFactory);
+        DataSource.Factory dataSourceFactory = new DefaultDataSourceFactory(context, Util.getUserAgent(context, "just_audio"));
         Uri uri = Uri.parse(url);
-
-        DownloadRequest downloadRequest = new DownloadRequest(
-                url,
-                DownloadRequest.TYPE_PROGRESSIVE,
-                uri,
-                /* streamKeys= */ Collections.emptyList(),
-                /* customCacheKey= */ null,
-                null);
-
         if (uri.getPath().toLowerCase().endsWith(".mpd")) {
             mediaSource = new DashMediaSource.Factory(dataSourceFactory).createMediaSource(uri);
         } else if (uri.getPath().toLowerCase().endsWith(".m3u8")) {
             mediaSource = new HlsMediaSource.Factory(dataSourceFactory).createMediaSource(uri);
         } else {
-//            mediaSource = new ProgressiveMediaSource.Factory(dataSourceFactory).createMediaSource(uri);
-            mediaSource =
-                    DownloadHelper.createMediaSource(downloadRequest, dataSourceFactory);
+            mediaSource = new ProgressiveMediaSource.Factory(dataSourceFactory).createMediaSource(uri);
         }
         player.prepare(mediaSource);
     }
@@ -387,7 +330,6 @@ public class AudioPlayer implements MethodCallHandler, Player.EventListener {
     }
 
     public void dispose() {
-        cache.release();
         player.release();
         buffering = false;
         transition(PlaybackState.none);
